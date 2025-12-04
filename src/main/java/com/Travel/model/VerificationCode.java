@@ -3,6 +3,8 @@ package com.Travel.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Data
 @AllArgsConstructor
@@ -21,4 +23,5 @@ public class VerificationCode {
     @OneToOne
     private Seller seller;
 
+    private LocalDateTime creatAt;
 }
