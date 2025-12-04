@@ -27,6 +27,8 @@ public class Seller {
     @Column(unique = true)
     private String email;
     private String password;
+
+    @OneToOne
     private Address pickUpAddress = new Address();
 
     //ten cty

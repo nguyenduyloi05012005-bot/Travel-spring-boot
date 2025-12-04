@@ -25,6 +25,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,72 +40,115 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProvider jwtProvider;
     @Override
     public void sentLoginOtp(String email, USER_ROLE role) throws Exception {
-        String SIGNING_PREFIX="signin_";//gia su co 1 thg dang signin_loi1590@gmail.com
-        if(email.startsWith(SIGNING_PREFIX)){
-            email=email.substring(SIGNING_PREFIX.length());
-            if(role.equals(USER_ROLE.ROLE_SELLER)){
-                Seller seller= sellerRepository.findByEmail(email);
-                if (seller==null){
-                    throw new Exception("Seller email Not Found!");
-                }
-            }
-            else{
-                User user= userRepository.findByEmail(email);
-                if(user==null){
-                    throw new Exception("User email not found!");
-                }
-            }
+        if(role.equals(USER_ROLE.ROLE_SELLER)){
+            Seller seller = sellerRepository.findByEmail(email);
+            if(seller == null) throw new Exception("Seller email not found!");
+        } else {
+            User user = userRepository.findByEmail(email);
+            if(user == null) throw new Exception("User email not found!");
         }
-        //neu dang dang ki
-        VerificationCode isExists=verificationRepository.findByEmail(email);// set cai isExit = cai email;
+
+        // Xóa OTP cũ nếu tồn tại
+        VerificationCode isExists = verificationRepository.findByEmail(email);
         if(isExists != null){
             verificationRepository.delete(isExists);
         }
-        String otp= OtpUtil.generateOtp();//tao 1 otp moi
+
+        // Tạo OTP mới
+        String otp = OtpUtil.generateOtp();
         VerificationCode verificationCode = new VerificationCode();
-        verificationCode.setOtp(otp);
         verificationCode.setEmail(email);
+        verificationCode.setOtp(otp);
         verificationRepository.save(verificationCode);
+
+        // Gửi email
         String subject = "Welcome To Travel Ecommerce";
-        String text = "Here you otp: " + otp;
-        emailService.sendVerificationOtpMail(email,otp,subject,text);
+        String text = "Your OTP: " + otp;
+        emailService.sendVerificationOtpMail(email, otp, subject, text);
     }
 
     @Override
     public String createUser(SignupRequest req) throws Exception {
-        VerificationCode verificationCode=verificationRepository.findByEmail(req.getEmail());
-        if(verificationCode==null|| !verificationCode.getOtp().equals(req.getOtp())){
-            throw new Exception("Wrong otp...");
+        // Kiểm tra OTP
+        VerificationCode verificationCode = verificationRepository.findByEmail(req.getEmail());
+        if(verificationCode == null || !verificationCode.getOtp().equals(req.getOtp())){
+            throw new Exception("Wrong OTP");
         }
-        User user= userRepository.findByEmail(req.getEmail());
-        if(user==null){
-            User createUser = new User();
-            createUser.setEmail(req.getEmail());
-            createUser.setFullName(req.getFullName());
-            createUser.setRole(USER_ROLE.ROLE_CUSTOMER);
-            createUser.setMobile(req.getMobile());
-            createUser.setPassword(passwordEncoder.encode(req.getOtp()));
-            user=userRepository.save(createUser);
 
-            //con` thieu cart
+        // Kiểm tra user đã tồn tại chưa
+        User user = userRepository.findByEmail(req.getEmail());
+        if(user == null){
+            User newUser = new User();
+            newUser.setEmail(req.getEmail());
+            newUser.setFullName(req.getFullName());
+            newUser.setMobile(req.getMobile());
+            newUser.setRole(USER_ROLE.ROLE_CUSTOMER); // Hoặc lấy từ req nếu muốn
+            newUser.setPassword(passwordEncoder.encode(req.getOtp()));
+            user = userRepository.save(newUser);
         }
+
+        // Tạo Authentication và JWT
         List<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority(USER_ROLE.ROLE_CUSTOMER.toString()));
+        authorities.add(new SimpleGrantedAuthority(user.getRole().toString()));
 
-        Authentication authentication = new UsernamePasswordAuthenticationToken(req.getEmail(),null,authorities);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
         return jwtProvider.generateToken(authentication);
     }
 
     @Override
-    public AuthResponse signing(LoginRequest req) {
-        String userName=req.getEmail();
-        String otp =req.getOtp();
-        Authentication authentication = authenticate
-        return null;
+    public AuthResponse signing(LoginRequest req) throws Exception {
+        String email = req.getEmail();
+        String otp = req.getOtp();
+
+        // Check OTP
+        VerificationCode verificationCode = verificationRepository.findByEmail(email);
+        if(verificationCode == null || !verificationCode.getOtp().equals(otp)) {
+            throw new Exception("Invalid OTP");
+        }
+
+        // Tìm user hoặc seller
+        User user = userRepository.findByEmail(email);
+        USER_ROLE role;
+        if(user != null) {
+            role = user.getRole();
+        } else {
+            Seller seller = sellerRepository.findByEmail(email);
+            if(seller != null) {
+                role = seller.getRole();
+            } else {
+                throw new Exception("User/Seller not found");
+            }
+        }
+
+        // Build Authentication
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority(role.toString()));
+
+        Authentication authentication = new UsernamePasswordAuthenticationToken(email, null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Tạo JWT
+        String token = jwtProvider.generateToken(authentication);
+
+        return new AuthResponse(token, "Login successful", role);
     }
 
-    private final Authentication authenticate(String userName,String otp){
-        UserDetails userDetails=cu
+    @Override
+    public void sentSignOtp(String email) {
+        VerificationCode oldOtp = verificationRepository.findByEmail(email);
+        if(oldOtp!=null){
+            verificationRepository.delete(oldOtp);
+        }
+        String otp = OtpUtil.generateOtp();
+        VerificationCode verificationCode = new VerificationCode();
+        verificationCode.setEmail(email);
+        verificationCode.setCreatAt(LocalDateTime.now());
+        verificationCode.setOtp(otp);
+        verificationRepository.save(verificationCode);
+        String subject = "Welcome to Travel Ecommerce - Signup OTP";
+        String text = "Your signup OTP is: " + otp;
+        emailService.sendVerificationOtpMail(email, otp, subject, text);
     }
 }

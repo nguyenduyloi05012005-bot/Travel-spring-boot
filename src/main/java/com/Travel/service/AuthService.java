@@ -8,6 +8,7 @@ import com.Travel.response.AuthResponse;
 public interface AuthService {
     void sentLoginOtp(String email,USER_ROLE role) throws Exception;
     String createUser(SignupRequest req) throws Exception;
-    AuthResponse signing(LoginRequest req);
+    AuthResponse signing(LoginRequest req) throws Exception;
+    void sentSignOtp(String email);
 
 }
