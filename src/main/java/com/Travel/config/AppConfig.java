@@ -54,7 +54,7 @@ public class AppConfig {
                 CorsConfiguration cfg = new CorsConfiguration();
 
                 // ✅ Cho phép gọi API từ mọi domain (như React ở localhost:3000)
-                cfg.setAllowedOrigins(Collections.singletonList("*"));
+                cfg.setAllowedOrigins(Collections.singletonList("http://localhost:3000"));
 
                 // ✅ Cho phép mọi phương thức HTTP: GET, POST, PUT, DELETE,...
                 cfg.setAllowedMethods(Collections.singletonList("*"));

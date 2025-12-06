@@ -27,6 +27,10 @@ public class Seller {
     @Column(unique = true)
     private String email;
     private String password;
+
+    //địa chỉ mà khách sẽ đến để bắt đầu tour
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "pickup_address_id")
     private Address pickUpAddress = new Address();
 
     //ten cty
@@ -34,15 +38,12 @@ public class Seller {
 
     private USER_ROLE role;
 
-    private boolean isEmailVerified = false; // mac dinh do xac thuc la false
-
     private AccountStatus status = AccountStatus.PENDING_VERIFICATION;
 
-    //Ngan hang mot code sau //nhúng class nhỏ vào class lớn , các flieds của class nhỏ sẽ thành cột của class lớn cho đỡ rối
-//    @Embedded
-//    private BusinessDetails businessDetails = new BusinessDetails();
+    @Embedded
+    private BusinessDetail businessDetails = new BusinessDetail();
 
-//    @Embedded
-//    private BankDetails bankDetails = new BankDetails();
+    @Embedded
+    private BankDetail bankDetails = new BankDetail();
 
 }

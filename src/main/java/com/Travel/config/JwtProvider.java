@@ -29,13 +29,16 @@ public class JwtProvider {
                 .setIssuedAt(new Date())//thoi gian token dc tao ra
                 .setExpiration(new Date(new Date().getTime() + 86400000))// thoi gian token het han (1ngay)
                 .claim("email",auth.getName())//them du lieu vao payload
+
                 .claim("authorities",roles)//them thong tin quyen han cua user vao payload
                 .signWith(key)
                 .compact();
     }
 
     public String getEmailFromJwtToken(String jwt){
-        jwt = jwt.substring(7);
+        if (jwt.startsWith("Bearer ")) {
+            jwt = jwt.substring(7);
+        }
         //Bearer Token
         Claims claim = Jwts.parserBuilder()
                 .setSigningKey(key)
